@@ -95,16 +95,16 @@ class Robot:
                     print(f"Error to find element: {str(e)}")
                     break
                 
-                # Getting image and saving on outputs folder
+                # Getting image and saving on output folder
                 if image_url:
                     image_response = requests.get(image_url)
                     if image_response.status_code == 200:
-                        with open(f"./outputs/{title}.jpg", "wb") as file:
+                        with open(f"./output/{title}.jpg", "wb") as file:
                             file.write(image_response.content)
 
                 print("Data loaded. Adding it to sheets")
                 sheet.append([title, description, _date, f"{title}.jpg", count_phrase, check_money])
 
         print("Creating results.xlsx")
-        workbook.save("./outputs/results.xlsx")
+        workbook.save("./output/results.xlsx")
         print("Worksheet created")
