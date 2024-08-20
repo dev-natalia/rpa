@@ -1,5 +1,5 @@
 from RPA.Browser.Selenium import Selenium
-import requests
+import os
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 import time
@@ -51,60 +51,56 @@ class Robot:
         
         for news in results:
             attempts = 0
-            # Page keeps updating sometimes, so tries 10 times to find element to avoid errors for not finding it
             while attempts < 10:
                 try:
                     self.browser.wait_until_element_is_visible(locator='//html/body/div[2]/ps-search-results-module/form/div[2]/ps-search-filters/div/main/ul/li', timeout=10)
                     
                     # Number of month to receive news
-                    # Example: time_period = 0 or 1: current month | time_period = 2: current and previous month | and so on
                     _date = news.find_element("css selector", ".promo-timestamp").get_attribute("data-timestamp")
-                    if int(time_period) == 0 or int(time_period)==1:
+                    if int(time_period) == 0 or int(time_period) == 1:
                         date_period = datetime.today()
                     else:
-                        date_period = datetime.today()-relativedelta(months=int(time_period)-1)
+                        date_period = datetime.today() - relativedelta(months=int(time_period) - 1)
                     date_period = date_period.replace(day=1)
                     timestamp_month = int(date_period.timestamp() * 1000)
                     if int(_date) < timestamp_month:
-                        attempts=10
+                        attempts = 10
                         continue
                     
-                    # Getting title, date, description, picture filename, count of search phrases and check for amount of money
                     title = news.find_element("css selector", ".promo-title a").text
                     description = news.find_element("css selector", ".promo-description").text
                     
                     count_phrases_title = title.lower().count(phrase.lower())
                     count_phrases_description = description.lower().count(phrase.lower())
-                    count_phrase = count_phrases_description+count_phrases_title
+                    count_phrase = count_phrases_description + count_phrases_title
                     
                     if "$" in title or "dollars" in title.lower() or "usd" in title.lower() or "$" in description or "dollars" in description.lower() or "usd" in description.lower():
                         check_money = True
                     else:
-                        check_money=False
+                        check_money = False
 
-                    image_url = news.find_element("xpath", './/div[@class="promo-media"]/a/picture/img').get_attribute('src')
+                    # Use a relative XPath to find the image within the context of the current news item
+                    image_element = news.find_element("xpath", './/div[@class="promo-media"]/a/picture/img')
+                    image_filename = f"./output/{title}.jpg"
+                    time.sleep(1)
+                    self.browser.screenshot(image_element, image_filename)
                     
                     attempts = 10
                 except StaleElementReferenceException:
                     print(f"Trying to find element. Number attempt: {attempts}")
                     if attempts == 9:
-                        raise Exception("Couldnt find element. Trying again")
+                        raise Exception("Could not find element. Trying again")
                     attempts += 1
                     time.sleep(1)
                 except Exception as e:
-                    print(f"Error to find element: {str(e)}")
+                    print(f"Error finding element: {str(e)}")
                     break
-                
-                # Getting image and saving on output folder
-                if image_url:
-                    image_response = requests.get(image_url)
-                    if image_response.status_code == 200:
-                        with open(f"./output/{title}.jpg", "wb") as file:
-                            file.write(image_response.content)
 
                 print("Data loaded. Adding it to sheets")
-                sheet.append([title, description, _date, f"{title}.jpg", count_phrase, check_money])
+                sheet.append([title, description, _date, image_filename, count_phrase, check_money])
 
         print("Creating results.xlsx")
+        if not os.path.exists("./output"):
+            os.makedirs("./output")
         workbook.save("./output/results.xlsx")
         print("Worksheet created")
